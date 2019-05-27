@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="manifest" href="./manifest.json">
+    <meta charset="UTF-8">
+    <meta name="theme-color" content="#00897B"/>
+    <title>dicoding</title>
+    <meta name="description" content="My FootballApp PWA"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+
+<nav class="red lighten-1" role="navigation">
+    <div class="nav-wrapper container">
+        <a href="#" class="brand-logo" id="logo-container">dicoding</a>
+        <a href="#" class="sidenav-trigger" data-target="nav-mobile">&#9776;</a>
+
+        <ul class="topnav right hide-on-med-and-down"></ul>
+        <ul class="sidenav" id="nav-mobile"></ul>
+    </div>
+</nav>
+
+<div class="container" id="body-content">
+</div>
+
+<div class="container center">
+    <button class="btn" onclick="addData()">
+        <i class="material-icons right">favorite_border</i>Add to my favourite team
+    </button>
+</div>
+<br>
+
+<script type="text/javascript" src="https://unpkg.com/snarkdown@1.0.2/dist/snarkdown.umd.js"></script>
+<script src="js/materialize.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/idb.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        getTeamById();
+    });
+
+    function addData() {
+        if (!('indexedDB' in window)) {
+            console.log('This browser doesn\\\'t support IndexedDB');
+            return;
+        }
+
+        var dbPromise = idb.open("mydatabase", 1, function (upgradeDb) {
+            console.log('Creating new object store . . . ');
+            if (!upgradeDb.objectStoreNames.contains("teams")) {
+                upgradeDb.createObjectStore("teams", {keyPath: 'id', autoIncrement: true});
+            }
+            console.log('Object store created!')
+        });
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var idParam = urlParams.get("id");
+
+        fetch(base_url + "teams/" + idParam, {
+            headers: {
+                'X-Auth-Token': "5feb29e9319245fe95efb85f8b7be3b9"
+            }
+        })
+            .then(status)
+            .then(json)
+            .then(function (data) {
+                dbPromise.then(function (db) {
+                    if ('PushManager' in window) {
+                        navigator.serviceWorker.getRegistration()
+                            .then(function (reg) {
+                                reg.showNotification(`Team ${data.name} added to your favourite list`);
+                            });
+                    }
+
+                    var tx = db.transaction('teams', 'readwrite');
+                    var store = tx.objectStore('teams');
+                    var team = {
+                        name: `${data.name}`
+                    };
+                    store.put(team);
+                    return tx.complete;
+                }).then(function () {
+                    window.location.href = "fav.html";
+                    console.log('Team successfully added');
+                }).catch(function (error) {
+                    alert('Fail to add team :(');
+                    console.log('Team failed to added');
+                    console.log(error);
+                });
+            });
+    }
+</script>
+</body>
+</html>
